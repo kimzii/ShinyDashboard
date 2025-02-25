@@ -77,11 +77,20 @@ server <- function(input, output) {
       slice_head(n = 1) %>% 
       pull(Category)
     
+    # Assign colors based on category
+    box_color <- case_when(
+      top_cat == "Electronics" ~ "blue",
+      top_cat == "Accessories" ~ "fuchsia",
+    )
+    
     valueBox(
-      ifelse(length(top_cat) > 0, top_cat, "No Data"), "Top-Selling Category", icon = icon("chart-bar"),
-      color = "blue"
+      ifelse(length(top_cat) > 0, top_cat, "No Data"), 
+      "Top-Selling Category", 
+      icon = icon("chart-bar"),
+      color = box_color
     )
   })
+  
   
   
   # Sales Trend Plot
