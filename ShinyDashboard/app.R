@@ -31,6 +31,9 @@ ui <- dashboardPage(
     fluidRow(
       box(plotlyOutput("sales_trend_plot", height = "450px"), width = 12)
     ),
+    fluidRow(
+      box(plotlyOutput("sales_by_region_plot", height = "450px"), width = 12)
+    )
   )
 )
 
@@ -94,6 +97,28 @@ server <- function(input, output) {
     
     ggplotly(p)
   })
+  
+  output$sales_by_region_plot <- renderPlotly({
+  df <- filtered_data() %>% 
+    group_by(Customer_Region) %>% 
+    summarize(Total_Sales = sum(Total_Cost, na.rm = TRUE))
+  
+  # Define custom colors for each region
+  custom_colors <- c("Central" = "#E74C3C",  # Red
+                     "East" = "#F1C40F",     # Yellow
+                     "North" = "#2ECC71",    # Green
+                     "South" = "#3498DB",    # Blue
+                     "West" = "#9B59B6")     # Purple
+  
+  p <- ggplot(df, aes(x = Customer_Region, y = Total_Sales, fill = Customer_Region)) +
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = custom_colors) +  # Apply custom colors
+    labs(title = "Total Sales by Region", x = "Customer Region", y = "Total Sales") +
+    theme_minimal() +
+    theme(text = element_text(size = 14))  # Improve font readability
+  
+  ggplotly(p)
+})
   
 }
 
