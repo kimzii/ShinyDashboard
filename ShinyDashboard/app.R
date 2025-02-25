@@ -15,22 +15,29 @@ data$Month <- format(data$Purchase_Date, "%Y-%m")  # Extract Year-Month for grou
 
 # UI
 ui <- dashboardPage(
-  dashboardHeader(title = "Sales Dashboard"),
+  dashboardHeader(
+    title = tags$div(
+      tags$img(src = "ShinyDashboard/dlogo.png", height = "40px", style = "margin-right: 10px;"),
+      "Sales Dashboard"
+    ),
+    titleWidth = 250  # ✅ Fixed missing value
+  ),  # ✅ Removed extra comma
+  
   dashboardSidebar(
     selectizeInput("month", "Select Month:", 
-                   choices = c("All", sort(unique(data$Month), decreasing = TRUE)),  # Sort months in descending order
+                   choices = c("All", sort(unique(data$Month), decreasing = TRUE)),  
                    selected = "All",
-                   options = list(placeholder = "Search or Select a Month")  # Allows typing
+                   options = list(placeholder = "Search or Select a Month")
     ),
     selectizeInput("region", "Select Region:", 
-                   choices = c("All", sort(unique(data$Customer_Region))),  # Sort regions alphabetically
+                   choices = c("All", sort(unique(data$Customer_Region))),  
                    selected = "All",
-                   options = list(placeholder = "Search or Select a Region")  # Allows typing
+                   options = list(placeholder = "Search or Select a Region")
     ),
     selectizeInput("category", "Select Category:", 
-                   choices = c("All", sort(unique(data$Category))),  # Sort categories alphabetically
+                   choices = c("All", sort(unique(data$Category))),  
                    selected = "All",
-                   options = list(placeholder = "Search or Select a Category")  # Allows typing
+                   options = list(placeholder = "Search or Select a Category")
     )
   ),
   
@@ -49,9 +56,9 @@ ui <- dashboardPage(
         width = 12,  
         plotlyOutput("sales_trend_plot", height = "450px")
       )
-    ),  # ✅ Corrected missing parenthesis
+    ),  
     
-    fluidRow(  # ✅ Correctly structured fluidRow
+    fluidRow(
       box(
         title = "Total Sales by Region", 
         status = "primary",  
@@ -59,13 +66,21 @@ ui <- dashboardPage(
         width = 12, 
         plotlyOutput("sales_by_region_plot", height = "450px")
       )
-    )
+    )  
+  ),  # ✅ Fixed missing closing parenthesis for dashboardBody
+  
+  # Custom CSS for navbar color
+  tags$head(
+    tags$style(HTML("
+      .skin-blue .main-header .navbar {
+        background-color: #000000 !important; /* Black color */
+      }
+    "))
   )
 )
 
 # Server
 server <- function(input, output) {
-  
   filtered_data <- reactive({
     df <- data
     if (input$month != "All") df <- df %>% filter(Month == input$month)
@@ -74,7 +89,6 @@ server <- function(input, output) {
     df
   })
   
-  # Total Sales (SUM of Total_Cost)
   output$total_sales <- renderValueBox({
     total_sales <- sum(filtered_data()$Total_Cost, na.rm = TRUE)  
     valueBox(
@@ -84,7 +98,6 @@ server <- function(input, output) {
     )
   })
   
-  # Total Transactions (COUNT of rows)
   output$total_transactions <- renderValueBox({
     total_trans <- nrow(filtered_data())  
     valueBox(
@@ -94,7 +107,6 @@ server <- function(input, output) {
     )
   })
   
-  # Top-Selling Category
   output$top_category <- renderValueBox({
     top_cat <- filtered_data() %>% 
       group_by(Category) %>% 
@@ -103,11 +115,10 @@ server <- function(input, output) {
       slice_head(n = 1) %>% 
       pull(Category)
     
-    # Assign colors based on category (Ensure a default case)
     box_color <- case_when(
       top_cat == "Electronics" ~ "blue",
       top_cat == "Accessories" ~ "fuchsia",
-      TRUE ~ "red"  # ✅ Added default case to avoid errors
+      TRUE ~ "red"
     )
     
     valueBox(
@@ -118,7 +129,6 @@ server <- function(input, output) {
     )
   })
   
-  # Sales Trend Plot
   output$sales_trend_plot <- renderPlotly({
     df <- filtered_data() %>% group_by(Purchase_Date) %>% summarize(Total_Sales = sum(Total_Cost, na.rm = TRUE))
     
@@ -132,7 +142,6 @@ server <- function(input, output) {
     ggplotly(p)
   })
   
-  # Sales by Region Plot
   output$sales_by_region_plot <- renderPlotly({
     df <- filtered_data() %>% 
       group_by(Customer_Region) %>% 
@@ -150,7 +159,7 @@ server <- function(input, output) {
       labs(title = "Total Sales by Region", x = "Customer Region", y = "Total Sales") +
       theme_minimal() +
       theme(
-        legend.position = "none",  # ✅ This removes the legend completely
+        legend.position = "none",  
         text = element_text(size = 14),
         axis.title.y = element_text(angle = 0, vjust = 0.5),
         plot.title = element_text(hjust = 0.5)
@@ -158,7 +167,6 @@ server <- function(input, output) {
     
     ggplotly(p) %>% layout(margin = list(l = 60)) 
   })
-  
   
 }
 
