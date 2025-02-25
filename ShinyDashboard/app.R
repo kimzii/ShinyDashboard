@@ -17,9 +17,21 @@ data$Month <- format(data$Purchase_Date, "%Y-%m")  # Extract Year-Month for grou
 ui <- dashboardPage(
   dashboardHeader(title = "Sales Dashboard"),
   dashboardSidebar(
-    selectInput("month", "Select Month:", choices = c("All", unique(data$Month)), selected = "All"),
-    selectInput("region", "Select Region:", choices = c("All", unique(data$Customer_Region)), selected = "All"),
-    selectInput("category", "Select Category:", choices = c("All", unique(data$Category)), selected = "All")
+    selectizeInput("month", "Select Month:", 
+                   choices = c("All", sort(unique(data$Month), decreasing = TRUE)),  # Sort months in descending order
+                   selected = "All",
+                   options = list(placeholder = "Search or Select a Month")  # Allows typing
+    ),
+    selectizeInput("region", "Select Region:", 
+                   choices = c("All", sort(unique(data$Customer_Region))),  # Sort regions alphabetically
+                   selected = "All",
+                   options = list(placeholder = "Search or Select a Region")  # Allows typing
+    ),
+    selectizeInput("category", "Select Category:", 
+                   choices = c("All", sort(unique(data$Category))),  # Sort categories alphabetically
+                   selected = "All",
+                   options = list(placeholder = "Search or Select a Category")  # Allows typing
+    )
   ),
   
   dashboardBody(
@@ -126,7 +138,6 @@ server <- function(input, output) {
       group_by(Customer_Region) %>% 
       summarize(Total_Sales = sum(Total_Cost, na.rm = TRUE))
     
-    # Define custom colors for each region
     custom_colors <- c("Central" = "#E74C3C",  
                        "East" = "#F1C40F",     
                        "North" = "#2ECC71",    
@@ -135,17 +146,19 @@ server <- function(input, output) {
     
     p <- ggplot(df, aes(x = Customer_Region, y = Total_Sales, fill = Customer_Region)) +
       geom_bar(stat = "identity") +
-      scale_fill_manual(values = custom_colors, na.translate = FALSE) +  # ✅ Added `na.translate = FALSE`
+      scale_fill_manual(values = custom_colors, na.translate = FALSE) +
       labs(title = "Total Sales by Region", x = "Customer Region", y = "Total Sales") +
       theme_minimal() +
       theme(
+        legend.position = "none",  # ✅ This removes the legend completely
         text = element_text(size = 14),
-        axis.title.y = element_text(angle = 0, vjust = 0.5),  
-        plot.title = element_text(hjust = 0.5)  
+        axis.title.y = element_text(angle = 0, vjust = 0.5),
+        plot.title = element_text(hjust = 0.5)
       )
     
-    ggplotly(p) %>% layout(margin = list(l = 60))  
+    ggplotly(p) %>% layout(margin = list(l = 60)) 
   })
+  
   
 }
 
