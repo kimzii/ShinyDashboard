@@ -28,11 +28,25 @@ ui <- dashboardPage(
       valueBoxOutput("total_sales", width = 4),
       valueBoxOutput("top_category", width = 4)
     ),
+    
     fluidRow(
-      box(plotlyOutput("sales_trend_plot", height = "450px"), width = 12)
-    ),
-    fluidRow(
-      box(plotlyOutput("sales_by_region_plot", height = "450px"), width = 12)
+      box(
+        title = "Sales Trend",  
+        status = "primary",  
+        solidHeader = TRUE,  
+        width = 12,  
+        plotlyOutput("sales_trend_plot", height = "450px")
+      )
+    ),  # ✅ Corrected missing parenthesis
+    
+    fluidRow(  # ✅ Correctly structured fluidRow
+      box(
+        title = "Total Sales by Region", 
+        status = "primary",  
+        solidHeader = TRUE,  
+        width = 12, 
+        plotlyOutput("sales_by_region_plot", height = "450px")
+      )
     )
   )
 )
@@ -50,7 +64,7 @@ server <- function(input, output) {
   
   # Total Sales (SUM of Total_Cost)
   output$total_sales <- renderValueBox({
-    total_sales <- sum(filtered_data()$Total_Cost, na.rm = TRUE)  # Ensure sum is correct
+    total_sales <- sum(filtered_data()$Total_Cost, na.rm = TRUE)  
     valueBox(
       paste0("$", format(total_sales, big.mark = ",")), "Total Sales", 
       icon = icon("dollar-sign"),
@@ -60,7 +74,7 @@ server <- function(input, output) {
   
   # Total Transactions (COUNT of rows)
   output$total_transactions <- renderValueBox({
-    total_trans <- nrow(filtered_data())  # Count the number of transactions
+    total_trans <- nrow(filtered_data())  
     valueBox(
       format(total_trans, big.mark = ","), "Total Transactions", 
       icon = icon("shopping-cart"),
@@ -77,10 +91,11 @@ server <- function(input, output) {
       slice_head(n = 1) %>% 
       pull(Category)
     
-    # Assign colors based on category
+    # Assign colors based on category (Ensure a default case)
     box_color <- case_when(
       top_cat == "Electronics" ~ "blue",
       top_cat == "Accessories" ~ "fuchsia",
+      TRUE ~ "red"  # ✅ Added default case to avoid errors
     )
     
     valueBox(
@@ -91,8 +106,6 @@ server <- function(input, output) {
     )
   })
   
-  
-  
   # Sales Trend Plot
   output$sales_trend_plot <- renderPlotly({
     df <- filtered_data() %>% group_by(Purchase_Date) %>% summarize(Total_Sales = sum(Total_Cost, na.rm = TRUE))
@@ -102,32 +115,37 @@ server <- function(input, output) {
       geom_point(color = "red") +
       labs(title = "Sales Trend", x = "Date", y = "Total Sales") +
       theme_minimal() +
-      theme(text = element_text(size = 12))  # Improve font readability
+      theme(text = element_text(size = 12))  
     
     ggplotly(p)
   })
   
+  # Sales by Region Plot
   output$sales_by_region_plot <- renderPlotly({
-  df <- filtered_data() %>% 
-    group_by(Customer_Region) %>% 
-    summarize(Total_Sales = sum(Total_Cost, na.rm = TRUE))
-  
-  # Define custom colors for each region
-  custom_colors <- c("Central" = "#E74C3C",  # Red
-                     "East" = "#F1C40F",     # Yellow
-                     "North" = "#2ECC71",    # Green
-                     "South" = "#3498DB",    # Blue
-                     "West" = "#9B59B6")     # Purple
-  
-  p <- ggplot(df, aes(x = Customer_Region, y = Total_Sales, fill = Customer_Region)) +
-    geom_bar(stat = "identity") +
-    scale_fill_manual(values = custom_colors) +  # Apply custom colors
-    labs(title = "Total Sales by Region", x = "Customer Region", y = "Total Sales") +
-    theme_minimal() +
-    theme(text = element_text(size = 14))  # Improve font readability
-  
-  ggplotly(p)
-})
+    df <- filtered_data() %>% 
+      group_by(Customer_Region) %>% 
+      summarize(Total_Sales = sum(Total_Cost, na.rm = TRUE))
+    
+    # Define custom colors for each region
+    custom_colors <- c("Central" = "#E74C3C",  
+                       "East" = "#F1C40F",     
+                       "North" = "#2ECC71",    
+                       "South" = "#3498DB",    
+                       "West" = "#9B59B6")     
+    
+    p <- ggplot(df, aes(x = Customer_Region, y = Total_Sales, fill = Customer_Region)) +
+      geom_bar(stat = "identity") +
+      scale_fill_manual(values = custom_colors, na.translate = FALSE) +  # ✅ Added `na.translate = FALSE`
+      labs(title = "Total Sales by Region", x = "Customer Region", y = "Total Sales") +
+      theme_minimal() +
+      theme(
+        text = element_text(size = 14),
+        axis.title.y = element_text(angle = 0, vjust = 0.5),  
+        plot.title = element_text(hjust = 0.5)  
+      )
+    
+    ggplotly(p) %>% layout(margin = list(l = 60))  
+  })
   
 }
 
