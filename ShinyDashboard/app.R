@@ -6,7 +6,7 @@ library(lubridate)
 library(readr)
 library(plotly)
 
-# Load the dataset
+# Load dataset
 data <- read_csv("../businessdata.csv")
 
 # Convert date column
