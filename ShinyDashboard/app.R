@@ -73,15 +73,16 @@ ui <- dashboardPage(
         status = "primary",
         solidHeader = TRUE,
         width = 6,
-        plotlyOutput("churn_plot", height = "400px"),
-        height = "600px"
+        plotlyOutput("churn_plot", height = "450px"),
+        height = "550px"  
       ),
       box(
         title = "Churn Summary by Region & Category",
         status = "primary",
         solidHeader = TRUE,
         width = 6,
-        dataTableOutput("churn_table")
+        dataTableOutput("churn_table"),
+        height = "550px"  
       )
     )
   )
