@@ -152,7 +152,7 @@ server <- function(input, output) {
     churn_data <- filtered_data()
     churn_rate <- mean(churn_data$Churn == "One-time") * 100
     valueBox(
-      paste0(round(churn_rate, 2), "%"), "Churn Rate (One-time Customers)",
+      paste0(round(churn_rate, 2), "%"), "Churn Rate",
       icon = icon("user-times"),
       color = "red"
     )
@@ -217,12 +217,15 @@ server <- function(input, output) {
   
   # Churn Bar Plot
   output$churn_plot <- renderPlotly({
-    df <- filtered_data() %>% group_by(Churn) %>% summarise(Total_Sales = sum(Total_Cost, na.rm = TRUE))
+    df <- filtered_data() %>% 
+      group_by(Churn) %>% 
+      summarise(Total_Sales = sum(Total_Cost, na.rm = TRUE))
     
     p <- ggplot(df, aes(x = Churn, y = Total_Sales, fill = Churn)) +
       geom_bar(stat = "identity") +
       labs(x = "Customer Type", y = "Total Sales", title = "Sales by Customer Type") +
-      theme_minimal()
+      theme_minimal() +
+      scale_y_continuous(labels = scales::comma)  # Format numbers with commas
     
     ggplotly(p)
   })
