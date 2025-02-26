@@ -1,4 +1,5 @@
 library(shiny)
+library(tidyr)
 library(shinydashboard)
 library(ggplot2)
 library(dplyr)
@@ -11,6 +12,11 @@ data <- read_csv("../businessdata.csv")
 # Convert date column
 data$Purchase_Date <- as.Date(data$Purchase_Date, format="%Y-%m-%d")
 data$Month <- format(data$Purchase_Date, "%Y-%m")  
+
+# Identify churn (One-time vs. Repeat Customers)
+customer_purchases <- data %>% group_by(Customer_ID) %>% summarize(Purchase_Count = n())
+data <- data %>% left_join(customer_purchases, by = "Customer_ID")
+data$Churn <- ifelse(data$Purchase_Count == 1, "One-time", "Repeat")
 
 # UI
 ui <- dashboardPage(
@@ -35,9 +41,10 @@ ui <- dashboardPage(
   
   dashboardBody(
     fluidRow(
-      valueBoxOutput("total_transactions", width = 4),
-      valueBoxOutput("total_sales", width = 4),
-      valueBoxOutput("top_category", width = 4)
+      valueBoxOutput("total_transactions", width = 3),
+      valueBoxOutput("total_sales", width = 3),
+      valueBoxOutput("top_category", width = 3),
+      valueBoxOutput("churn_rate", width = 3)  # New Churn KPI
     ),
     
     fluidRow(
@@ -45,18 +52,32 @@ ui <- dashboardPage(
         title = "Sales Trend",  
         status = "primary",  
         solidHeader = TRUE,  
-        width = 12,  
+        width = 6,  
         plotlyOutput("sales_trend_plot", height = "450px")
-      )
-    ),  
-    
-    fluidRow( 
+      ),
       box(
         title = "Total Sales by Region", 
         status = "primary",  
         solidHeader = TRUE,  
-        width = 12, 
+        width = 6, 
         plotlyOutput("sales_by_region_plot", height = "450px")
+      )
+    ),  
+    fluidRow(
+      box(
+        title = "Churn Analysis (One-time vs. Repeat Customers)",
+        status = "primary",
+        solidHeader = TRUE,
+        width = 6,
+        plotlyOutput("churn_plot", height = "400px"),
+        height = "600px"
+      ),
+      box(
+        title = "Churn Summary by Region & Category",
+        status = "primary",
+        solidHeader = TRUE,
+        width = 6,
+        dataTableOutput("churn_table")
       )
     )
   )
@@ -122,6 +143,17 @@ server <- function(input, output) {
     )
   })
   
+  # Churn Rate KPI
+  output$churn_rate <- renderValueBox({
+    churn_data <- filtered_data()
+    churn_rate <- mean(churn_data$Churn == "One-time") * 100
+    valueBox(
+      paste0(round(churn_rate, 2), "%"), "Churn Rate (One-time Customers)",
+      icon = icon("user-times"),
+      color = "red"
+    )
+  })
+  
   # Sales Trend Line Graph 
   output$sales_trend_plot <- renderPlotly({
     df <- filtered_data() %>%
@@ -177,6 +209,27 @@ server <- function(input, output) {
     
     ggplotly(p, tooltip = "text") %>% 
       layout(margin = list(l = 60))
+  })
+  
+  # Churn Bar Plot
+  output$churn_plot <- renderPlotly({
+    df <- filtered_data() %>% group_by(Churn) %>% summarise(Total_Sales = sum(Total_Cost, na.rm = TRUE))
+    
+    p <- ggplot(df, aes(x = Churn, y = Total_Sales, fill = Churn)) +
+      geom_bar(stat = "identity") +
+      labs(x = "Customer Type", y = "Total Sales", title = "Sales by Customer Type") +
+      theme_minimal()
+    
+    ggplotly(p)
+  })
+  
+  # Churn Summary Table
+  output$churn_table <- renderDataTable({
+    churn_summary <- filtered_data() %>% 
+      group_by(Customer_Region, Category, Churn) %>% 
+      summarise(Total_Customers = n(), .groups = 'drop') %>% 
+      spread(Churn, Total_Customers, fill = 0)
+    churn_summary
   })
   
 }
