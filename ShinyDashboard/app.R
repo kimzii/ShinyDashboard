@@ -7,7 +7,7 @@ library(lubridate)
 library(readr)
 library(plotly)
 
-data <- read_csv("../businessdata.csv")
+data <- read_csv("businessdata.csv")
 
 # Convert date column
 data$Purchase_Date <- as.Date(data$Purchase_Date, format="%Y-%m-%d")
@@ -20,7 +20,11 @@ data$Churn <- ifelse(data$Purchase_Count == 1, "One-time", "Repeat")
 
 # UI
 ui <- dashboardPage(
-  dashboardHeader(title = "Sales Dashboard"),
+  dashboardHeader(title = tagList(
+      tags$img(src = "logo.jpg", height = "40px", style = ""),
+      "Sales Dashboard"
+    )
+  ),
   dashboardSidebar(
     selectizeInput("month", "Select Month:", 
                    choices = c("All", sort(unique(data$Month), decreasing = TRUE)),  
