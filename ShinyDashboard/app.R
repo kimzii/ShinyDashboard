@@ -73,7 +73,6 @@ server <- function(input, output) {
     df
   })
   
-  # Define color palette for consistency
   custom_colors <- c("Central" = "#E74C3C",  
                      "East" = "#F1C40F",     
                      "North" = "#2ECC71",    
@@ -141,7 +140,7 @@ server <- function(input, output) {
       geom_line(size = 0.5) +
       geom_point(size = 1) +
       scale_color_manual(values = custom_colors) +
-      labs(title = "Sales Trend", x = "Date", y = "Total Sales") +
+      labs(x = "Date", y = "Total Sales") +
       theme_minimal() +
       theme(
         text = element_text(size = 12),
