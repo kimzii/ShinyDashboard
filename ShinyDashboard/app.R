@@ -167,7 +167,7 @@ server <- function(input, output) {
       geom_bar(stat = "identity") +
       scale_fill_manual(values = custom_colors, na.translate = FALSE) +
       scale_y_continuous(labels = scales::comma) +  
-      labs(title = "Total Sales by Region", x = "Customer Region", y = "Total Sales") +
+      labs(x = "Customer Region", y = "Total Sales") +
       theme_minimal() +
       theme(
         legend.position = "none",
