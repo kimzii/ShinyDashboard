@@ -21,7 +21,7 @@ data$Churn <- ifelse(data$Purchase_Count == 1, "One-time", "Repeat")
 # UI
 ui <- dashboardPage(
   dashboardHeader(title = tagList(
-      tags$img(src = "logo.jpg", height = "40px", style = ""),
+      tags$img(src = "logo.png", height = "40px", style = ""),
       "Sales Dashboard"
     )
   ),
@@ -48,7 +48,7 @@ ui <- dashboardPage(
       valueBoxOutput("total_transactions", width = 3),
       valueBoxOutput("total_sales", width = 3),
       valueBoxOutput("top_category", width = 3),
-      valueBoxOutput("churn_rate", width = 3)  # New Churn KPI
+      valueBoxOutput("churn_rate", width = 3) 
     ),
     
     fluidRow(
