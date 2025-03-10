@@ -1,245 +1,85 @@
 library(shiny)
-library(tidyr)
-library(shinydashboard)
-library(ggplot2)
-library(dplyr)
-library(lubridate)
-library(readr)
+library(tidyverse)
+library(DT)
 library(plotly)
+library(tidyquant)  # For stock data
 
-data <- read_csv("businessdata.csv")
-
-# Convert date column
-data$Purchase_Date <- as.Date(data$Purchase_Date, format="%Y-%m-%d")
-data$Month <- format(data$Purchase_Date, "%Y-%m")  
-
-# Identify churn (One-time vs. Repeat Customers)
-customer_purchases <- data %>% group_by(Customer_ID) %>% summarize(Purchase_Count = n())
-data <- data %>% left_join(customer_purchases, by = "Customer_ID")
-data$Churn <- ifelse(data$Purchase_Count == 1, "One-time", "Repeat")
-
-# UI
-ui <- dashboardPage(
-  dashboardHeader(title = tagList(
-      tags$img(src = "logo.png", height = "40px", style = ""),
-      "Sales Dashboard"
-    )
-  ),
-  dashboardSidebar(
-    selectizeInput("month", "Select Month:", 
-                   choices = c("All", sort(unique(data$Month), decreasing = TRUE)),  
-                   selected = "All",
-                   options = list(placeholder = "Search or Select a Month")  
-    ),
-    selectizeInput("region", "Select Region:", 
-                   choices = c("All", sort(unique(data$Customer_Region))),  
-                   selected = "All",
-                   options = list(placeholder = "Search or Select a Region")  
-    ),
-    selectizeInput("category", "Select Category:", 
-                   choices = c("All", sort(unique(data$Category))), 
-                   selected = "All",
-                   options = list(placeholder = "Search or Select a Category")
-    )
-  ),
+ui <- fluidPage(
+  titlePanel("Stock Market Analytics"),
   
-  dashboardBody(
-    fluidRow(
-      valueBoxOutput("total_transactions", width = 3),
-      valueBoxOutput("total_sales", width = 3),
-      valueBoxOutput("top_category", width = 3),
-      valueBoxOutput("churn_rate", width = 3) 
+  sidebarLayout(
+    sidebarPanel(
+      selectizeInput("stock_symbol_1", "Select First Stock Symbol:", 
+                     choices = c("AAPL", "DODGX", "FDTOX", "FLPSX", "GSAT", "ITOT", "KSPI", "OMX", "SAIL", "VRM", "VWO", "VXRT", "VXUS"),  
+                     selected = c(),
+                     multiple = TRUE,  
+                     options = list(placeholder = "Search or Select Stock Symbols")),
+      
+      selectizeInput("stock_symbol_2", "Select Second Stock Symbol:", 
+                     choices = c("AAPL", "DODGX", "FDTOX", "FLPSX", "GSAT", "ITOT", "KSPI", "OMX", "SAIL", "VRM", "VWO", "VXRT", "VXUS"),  
+                     selected = c(), 
+                     multiple = TRUE,  
+                     options = list(placeholder = "Search or Select Stock Symbol")),
+      
+      dateRangeInput("date_range", "Select Date Range:",
+                     start = Sys.Date() - 30, end = Sys.Date()),
+      actionButton("fetch_stock", "Get Stock Data")
     ),
     
-    fluidRow(
-      box(
-        title = "Sales Trend",  
-        status = "primary",  
-        solidHeader = TRUE,  
-        width = 6,  
-        plotlyOutput("sales_trend_plot", height = "450px")
-      ),
-      box(
-        title = "Total Sales by Region", 
-        status = "primary",  
-        solidHeader = TRUE,  
-        width = 6, 
-        plotlyOutput("sales_by_region_plot", height = "450px")
-      )
-    ),  
-    fluidRow(
-      box(
-        title = "Churn Analysis (One-time vs. Repeat Customers)",
-        status = "primary",
-        solidHeader = TRUE,
-        width = 6,
-        plotlyOutput("churn_plot", height = "450px"),
-        height = "550px"  
-      ),
-      box(
-        title = "Churn Summary by Region & Category",
-        status = "primary",
-        solidHeader = TRUE,
-        width = 6,
-        dataTableOutput("churn_table"),
-        height = "550px"  
+    mainPanel(
+      tabsetPanel(
+        tabPanel("Stock Data", DTOutput("stock_table")),
+        tabPanel("Stock Price Trend", plotlyOutput("stock_plot"))
       )
     )
   )
 )
 
-# Server
-server <- function(input, output) {
+server <- function(input, output, session) {
   
-  filtered_data <- reactive({
-    df <- data
-    if (input$month != "All") df <- df %>% filter(Month == input$month)
-    if (input$region != "All") df <- df %>% filter(Customer_Region == input$region)
-    if (input$category != "All") df <- df %>% filter(Category == input$category)
-    df
+  stock_data <- reactiveVal(data.frame())
+  
+  observeEvent(input$fetch_stock, {
+    req(length(input$stock_symbol_1) > 0, length(input$stock_symbol_2) > 0)  # Ensure at least one symbol is selected for both inputs
+    
+    # Fetch stock data for both symbols
+    data_list <- list()  # To store the data for both symbols
+    
+    # Fetch stock data for all selected symbols in stock_symbol_1
+    for (symbol in input$stock_symbol_1) {
+      data <- tq_get(symbol, from = input$date_range[1], to = input$date_range[2])
+      data$symbol <- symbol
+      data_list[[symbol]] <- data
+    }
+    
+    # Fetch stock data for all selected symbols in stock_symbol_2
+    for (symbol in input$stock_symbol_2) {
+      data <- tq_get(symbol, from = input$date_range[1], to = input$date_range[2])
+      data$symbol <- symbol
+      data_list[[symbol]] <- data
+    }
+    
+    # Combine all data into one data frame
+    combined_data <- bind_rows(data_list)
+    
+    stock_data(combined_data)
   })
   
-  custom_colors <- c("Central" = "#E74C3C",  
-                     "East" = "#F1C40F",     
-                     "North" = "#2ECC71",    
-                     "South" = "#3498DB",    
-                     "West" = "#9B59B6")     
-  
-  # Total Sales (SUM of Total_Cost)
-  output$total_sales <- renderValueBox({
-    total_sales <- sum(filtered_data()$Total_Cost, na.rm = TRUE)  
-    valueBox(
-      paste0("$", format(total_sales, big.mark = ",")), "Total Sales", 
-      icon = icon("dollar-sign"),
-      color = "green"
-    )
+  output$stock_table <- renderDT({
+    req(stock_data())
+    datatable(stock_data())
   })
   
-  # Total Transactions 
-  output$total_transactions <- renderValueBox({
-    total_trans <- nrow(filtered_data())  
-    valueBox(
-      format(total_trans, big.mark = ","), "Total Transactions", 
-      icon = icon("shopping-cart"),
-      color = "orange"
-    )
+  output$stock_plot <- renderPlotly({
+    req(stock_data())
+    
+    plot <- ggplot(stock_data(), aes(x = date, y = adjusted, color = symbol)) +
+      geom_line() +
+      labs(title = paste("Stock Price Trend"), x = "Date", y = "Adjusted Close Price") +
+      theme_minimal()
+    
+    ggplotly(plot)
   })
-  
-  # Top-Selling Category
-  output$top_category <- renderValueBox({
-    top_cat <- filtered_data() %>% 
-      group_by(Category) %>% 
-      summarize(Total_Sales = sum(Total_Cost, na.rm = TRUE)) %>% 
-      arrange(desc(Total_Sales)) %>% 
-      slice_head(n = 1) %>% 
-      pull(Category)
-    
-    box_color <- case_when(
-      top_cat == "Electronics" ~ "blue",
-      top_cat == "Accessories" ~ "fuchsia",
-      TRUE ~ "red"
-    )
-    
-    valueBox(
-      ifelse(length(top_cat) > 0, top_cat, "No Data"), 
-      "Top-Selling Category", 
-      icon = icon("chart-bar"),
-      color = box_color
-    )
-  })
-  
-  # Churn Rate KPI
-  output$churn_rate <- renderValueBox({
-    churn_data <- filtered_data()
-    churn_rate <- mean(churn_data$Churn == "One-time") * 100
-    valueBox(
-      paste0(round(churn_rate, 2), "%"), "Churn Rate",
-      icon = icon("user-times"),
-      color = "red"
-    )
-  })
-  
-  # Sales Trend Line Graph 
-  output$sales_trend_plot <- renderPlotly({
-    df <- filtered_data() %>%
-      group_by(Purchase_Date, Customer_Region) %>%
-      summarize(Total_Sales = sum(Total_Cost, na.rm = TRUE), .groups = 'drop')
-    
-    df$text <- paste0(
-      "Date: ", df$Purchase_Date, "<br>",
-      "Total Sales: $", format(df$Total_Sales, big.mark = ","), "<br>",
-      "Region: ", df$Customer_Region
-    )
-    
-    p <- ggplot(df, aes(x = Purchase_Date, y = Total_Sales, 
-                        color = Customer_Region, group = Customer_Region, 
-                        text = text)) +  
-      geom_line(size = 0.5) +
-      geom_point(size = 1) +
-      scale_color_manual(values = custom_colors) +
-      labs(x = "Date", y = "Total Sales") +
-      theme_minimal() +
-      theme(
-        text = element_text(size = 12),
-        plot.title = element_text(hjust = 0.5),
-        legend.title = element_blank()
-      )
-    
-    ggplotly(p, tooltip = "text")
-  })
-  
-  # Sales by Region Bar Graph 
-  output$sales_by_region_plot <- renderPlotly({
-    df <- filtered_data() %>% 
-      group_by(Customer_Region) %>% 
-      summarize(Total_Sales = sum(Total_Cost, na.rm = TRUE), .groups = 'drop')
-    
-    df$text <- paste0(
-      "Region: ", df$Customer_Region, "<br>",
-      "Total Sales: $", format(df$Total_Sales, big.mark = ",")
-    )
-    
-    p <- ggplot(df, aes(x = Customer_Region, y = Total_Sales, fill = Customer_Region, text = text)) +
-      geom_bar(stat = "identity") +
-      scale_fill_manual(values = custom_colors, na.translate = FALSE) +
-      scale_y_continuous(labels = scales::comma) +  
-      labs(x = "Customer Region", y = "Total Sales") +
-      theme_minimal() +
-      theme(
-        legend.position = "none",
-        text = element_text(size = 14),
-        axis.title.y = element_text(angle = 0, vjust = 0.5),
-        plot.title = element_text(hjust = 0.5)
-      )
-    
-    ggplotly(p, tooltip = "text") %>% 
-      layout(margin = list(l = 60))
-  })
-  
-  # Churn Bar Plot
-  output$churn_plot <- renderPlotly({
-    df <- filtered_data() %>% 
-      group_by(Churn) %>% 
-      summarise(Total_Sales = sum(Total_Cost, na.rm = TRUE))
-    
-    p <- ggplot(df, aes(x = Churn, y = Total_Sales, fill = Churn)) +
-      geom_bar(stat = "identity") +
-      labs(x = "Customer Type", y = "Total Sales", title = "Sales by Customer Type") +
-      theme_minimal() +
-      scale_y_continuous(labels = scales::comma)  # Format numbers with commas
-    
-    ggplotly(p)
-  })
-  
-  # Churn Summary Table
-  output$churn_table <- renderDataTable({
-    churn_summary <- filtered_data() %>% 
-      group_by(Customer_Region, Category, Churn) %>% 
-      summarise(Total_Customers = n(), .groups = 'drop') %>% 
-      spread(Churn, Total_Customers, fill = 0)
-    churn_summary
-  })
-  
 }
 
 shinyApp(ui, server)
